@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import Request
 
 from database import settings
 
@@ -32,21 +33,29 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
+
+async def get_current_user_id(request: Request, token: str = Depends(oauth2_scheme)) -> str:
     """
-    Decodes the JWT token to get the user's ID.
-    This function is used as a dependency in protected routes.
+    Decodes the JWT token from either cookie or Authorization header.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # ✅ Try to get from cookie first
+    jwt_token = request.cookies.get("access_token")
+    if not jwt_token:
+        # Fallback to Bearer token if cookie not found
+        jwt_token = token
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+
     return user_id

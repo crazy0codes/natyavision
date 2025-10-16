@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from models import User, UserCreate, UserLogin, AuthResponse
 from auth import hash_password, verify_password, create_access_token
+from fastapi import Response
 
 router = APIRouter()
 
@@ -40,12 +41,11 @@ async def create_user(user_in: UserCreate):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login_for_access_token(form_data: UserLogin):
+async def login_for_access_token(form_data: UserLogin, response: Response):
     """
     Handle user login.
-    - Finds the user by email.
-    - Verifies the provided password against the stored hash.
-    - If credentials are correct, returns a new JWT token.
+    - Verifies user credentials.
+    - Returns JWT and sets it as an HttpOnly cookie.
     """
     user = await User.find_one(User.email == form_data.email)
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -56,9 +56,19 @@ async def login_for_access_token(form_data: UserLogin):
         )
     
     access_token = create_access_token(data={"sub": str(user.id)})
-    
+
+    # 👇 Store token in HttpOnly cookie
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,         # ✅ Use True only if using HTTPS
+        samesite="none",      # ✅ "none" for localhost:3000 ↔ localhost:8000
+        max_age=60 * 60 * 24  # optional: 1 day
+    )
+
     return AuthResponse(
-        jwt_token=access_token,
+        jwt_token=access_token,  # optional (can omit if not needed on frontend)
         email=user.email,
         status="success"
     )

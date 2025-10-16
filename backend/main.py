@@ -9,6 +9,10 @@ from models import User, DanceStyle, Song, TutorialStep, UserSongStatus
 from routes.auth_routes import router as auth_router
 from routes.dance_routes import router as dance_router
 from routes.user_routes import router as user_router
+from routes.pose_routes import router as pose_router 
+from fastapi.staticfiles import StaticFiles
+
+
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -20,7 +24,10 @@ app = FastAPI(
 # CORS (Cross-Origin Resource Sharing) Middleware
 # This allows your frontend to communicate with this backend.
 # Be sure to restrict origins in a production environment.
-origins = ["*"] 
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+] 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -42,11 +49,14 @@ async def app_init():
         document_models=[User, DanceStyle, Song, TutorialStep, UserSongStatus]
     )
 
+# Static resources
+app.mount("/static", StaticFiles(directory="static_pose_comparision"), name="static")
+
 # Include API routers
 app.include_router(auth_router, tags=["Authentication"], prefix="/api/auth")
 app.include_router(dance_router, tags=["Dance Content"], prefix="/api/dance")
 app.include_router(user_router, tags=["User Progress"], prefix="/api/user")
-
+app.include_router(pose_router, tags=["Pose Feedback"]) 
 
 # Root endpoint
 @app.get("/api", tags=["Root"])
